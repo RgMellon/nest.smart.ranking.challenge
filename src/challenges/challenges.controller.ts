@@ -72,6 +72,36 @@ export class ChallengesController {
     }
   }
 
+  @MessagePattern('get-completed-challenges')
+  async getCompletedChallenge(
+    @Payload() payload: any,
+    @Ctx() context: RmqContext,
+  ): Promise<Challenge[] | Challenge> {
+    this.logger.debug(`ENTREII AQUIII.data: ${JSON.stringify(payload)}`);
+    const channel = context.getChannelRef();
+    const originalMsg = context.getMessage();
+    try {
+      const { category, dateRef } = payload;
+      this.logger.debug(
+        `getCompletedChallenge.data: ${JSON.stringify(payload)}`,
+      );
+      if (dateRef) {
+        const result =
+          await this.challengesService.getCompletedChallengesByDate(
+            category,
+            dateRef,
+          );
+
+        this.logger.debug(result, 'result: ');
+        return result;
+      } else {
+        return await this.challengesService.getCompletedChallenges(category);
+      }
+    } finally {
+      await channel.ack(originalMsg);
+    }
+  }
+
   @EventPattern('update-challenge-match')
   async updateChallengeMatch(@Payload() data: any, @Ctx() context: RmqContext) {
     const channel = context.getChannelRef();

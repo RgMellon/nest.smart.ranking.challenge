@@ -5,12 +5,12 @@ import { Model } from 'mongoose';
 import { ClientProxySmartRanking } from 'src/proxyrmq/client.proxy.smart.ranking';
 import { ChallengeStatus } from './interfaces/challenge.status.enum';
 import { RpcException } from '@nestjs/microservices';
+import { toZonedTime } from 'date-fns-tz';
+import { endOfDay } from 'date-fns';
 
 @Injectable()
 export class ChallengesService {
   private readonly logger = new Logger(ChallengesService.name);
-  //   private clientNotifications =
-  //     this.clientProxySmartRanking.getClientProxyChallengesInstance();
 
   constructor(
     @InjectModel('Challenge') private readonly challengeModel: Model<Challenge>,
@@ -115,6 +115,51 @@ export class ChallengesService {
     } catch (err) {
       console.log('error', err);
       throw new RpcException(err.message);
+    }
+  }
+
+  async getCompletedChallengesByDate(
+    category: string,
+    dateRef: string,
+  ): Promise<Challenge[]> {
+    try {
+      const dateRefObj = new Date(dateRef);
+      const endDate = endOfDay(dateRefObj);
+
+      const endDateInUTC = toZonedTime(endDate, 'UTC');
+      this.logger.debug(
+        `${endDate.getTime()} getCompletedChallengesByDate-date`,
+      );
+
+      this.logger.debug(`${endDateInUTC} getCompletedChallengesByDate-date`);
+
+      return await this.challengeModel
+        .find()
+        .where('category')
+        .equals(category)
+        .where('status')
+        .equals(ChallengeStatus.COMPLETED)
+        .where('dateTimeChallenge')
+        .lte(endDateInUTC.getTime())
+        .exec();
+    } catch (error) {
+      this.logger.error(`error: ${JSON.stringify(error.message)}`);
+      throw new RpcException(error.message);
+    }
+  }
+
+  async getCompletedChallenges(category: string): Promise<Challenge[]> {
+    try {
+      return await this.challengeModel
+        .find()
+        .where('category')
+        .equals(category)
+        .where('status')
+        .equals(ChallengeStatus.COMPLETED)
+        .exec();
+    } catch (error) {
+      this.logger.error(`error: ${JSON.stringify(error.message)}`);
+      throw new RpcException(error.message);
     }
   }
 }
